@@ -53,7 +53,14 @@ def get_stock_data(ticker: str, period: str = "6mo"):
         highest    = float(hist["High"].max())
         lowest     = float(hist["Low"].min())
         info       = stock.info
-        market_cap = info.get("marketCap", 0)
+        
+        market_cap = info.get("marketCap")
+        if not market_cap:
+            try:
+                market_cap = stock.fast_info['market_cap']
+            except Exception:
+                market_cap = 0
+        
         chart_data = (
             hist[["Date", "Close"]]
             .rename(columns={"Date": "date", "Close": "price"})
