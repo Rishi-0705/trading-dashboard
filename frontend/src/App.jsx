@@ -5,7 +5,7 @@ import {
 } from 'recharts';
 import {
   TrendingUp, TrendingDown, DollarSign, Activity, Settings2, Filter,
-  Search, User, HelpCircle, Zap, BarChart2, GitCompare
+  Search, User, HelpCircle, Zap, BarChart2, GitCompare, ChevronDown
 } from 'lucide-react';
 
 const TICKERS = {
@@ -13,13 +13,47 @@ const TICKERS = {
   "6963.KL": "VS Industry",
   "6599.KL": "Aeon",
   "5347.KL": "Tenaga Nasional",
-  "1023.KL": "CIMB Group"
+  "1023.KL": "CIMB Group",
+  "7277.KL": "Dialog Group",
+  "5248.KL": "Bermaz Auto (Bauto)",
+  "3042.KL": "Petron Malaysia",
+  "3034.KL": "Hap Seng",
+  "5235.KL": "KLCC",
+  "4197.KL": "Sime Darby",
+  "5200.KL": "UOA Development",
+  "5109.KL": "YTL REIT",
+  "5123.KL": "Sentral REIT",
+  "5258.KL": "Bank Islam (BIMB)",
+  "5180.KL": "Capitaland Malaysia Trust (CLMT)",
+  "3182.KL": "Genting",
+  "4707.KL": "Nestle",
+  "2429.KL": "Tanco",
+  "5555.KL": "Sunway Medical (SUNMED)",
+  "8664.KL": "SP Setia",
+  "5263.KL": "Sunway Construction",
+  "5309.KL": "ITMAX System",
+  "5225.KL": "IHH Healthcare",
+  "0128.KL": "Frontken",
+  "0101.KL": "TMC Life Sciences",
+  "5318.KL": "DXN Holdings",
+  "5398.KL": "Gamuda",
+  "5246.KL": "Westports",
+  "6888.KL": "Axiata",
+  "5352.KL": "MTTSL",
+  "5024.KL": "Hup Seng",
+  "5102.KL": "Guan Chong (GCB)",
+  "0166.KL": "Inari Amertron",
+  "7113.KL": "Top Glove",
+  "7106.KL": "Supermax",
+  "6742.KL": "YTL Power"
 };
 
 const PERIODS = [
-  { label: '1 Month', value: '1mo' },
   { label: '6 Months', value: '6mo' },
-  { label: '1 Year', value: '1y' }
+  { label: '1 Year', value: '1y' },
+  { label: '3 Years', value: '3y' },
+  { label: '5 Years', value: '5y' },
+  { label: '10 Years', value: '10y' }
 ];
 
 function detectByThreshold(chartData, threshold = 2) {
@@ -103,9 +137,57 @@ function BigMoveTable({ moves, emptyMsg }) {
   );
 }
 
+function CustomSelect({ value, onChange, options, placeholder }) {
+  const [isOpen, setIsOpen] = useState(false);
+  
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (!e.target.closest('.custom-select-container')) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
+
+  const selectedOption = options.find(o => o.value === value);
+
+  return (
+    <div className="relative flex-1 custom-select-container">
+      <div
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full bg-white border border-gray-300 text-gray-900 text-sm rounded p-2 flex justify-between items-center cursor-pointer"
+      >
+        <span className="truncate">{selectedOption ? selectedOption.label : placeholder}</span>
+        <ChevronDown size={16} className="text-gray-500 flex-shrink-0 ml-2" />
+      </div>
+      {isOpen && (
+        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded shadow-lg z-50 max-h-60 overflow-y-auto">
+          {options.map((opt) => (
+            <div
+              key={opt.value}
+              onClick={() => {
+                onChange(opt.value);
+                setIsOpen(false);
+              }}
+              className={`p-2 text-sm cursor-pointer hover:bg-gray-100 ${value === opt.value ? 'bg-blue-50 text-[#317EAC] font-medium' : 'text-gray-700'}`}
+            >
+              {opt.label}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const TICKER_OPTIONS = Object.entries(TICKERS)
+  .sort(([, nameA], [, nameB]) => nameA.localeCompare(nameB))
+  .map(([ticker, name]) => ({ value: ticker, label: `${name} (${ticker})` }));
+
 function App() {
   const [selectedTicker, setSelectedTicker] = useState("1155.KL");
-  const [selectedPeriod, setSelectedPeriod] = useState("1mo");
+  const [selectedPeriod, setSelectedPeriod] = useState("6mo");
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -208,25 +290,27 @@ function App() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="flex items-center gap-4">
                     <label className="w-24 text-sm font-medium text-gray-700">Stock Name</label>
-                    <select value={selectedTicker} onChange={e => setSelectedTicker(e.target.value)}
-                      className="flex-1 bg-white border border-gray-300 text-gray-900 text-sm rounded p-2 outline-none cursor-pointer">
-                      {Object.entries(TICKERS).map(([ticker, name]) => (
-                        <option key={ticker} value={ticker}>{name} ({ticker})</option>
-                      ))}
-                    </select>
+                    <CustomSelect
+                      value={selectedTicker}
+                      onChange={setSelectedTicker}
+                      options={TICKER_OPTIONS}
+                      placeholder="Select a stock"
+                    />
                   </div>
                   <div className="flex items-center gap-4">
                     <label className="w-24 text-sm font-medium text-gray-700">Timeline</label>
-                    <select value={selectedPeriod} onChange={e => setSelectedPeriod(e.target.value)}
-                      className="flex-1 bg-white border border-gray-300 text-gray-900 text-sm rounded p-2 outline-none cursor-pointer">
-                      {PERIODS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
-                    </select>
+                    <CustomSelect
+                      value={selectedPeriod}
+                      onChange={setSelectedPeriod}
+                      options={PERIODS}
+                      placeholder="Select a timeline"
+                    />
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Main Chart — with conditional dots */}
+            {/* Merged: Price History + Big Moves controls in one card */}
             <div className="ui-card">
               <div className="ui-card-header">
                 <Activity size={20} /> Price History
@@ -236,118 +320,113 @@ function App() {
                   </span>
                 )}
               </div>
-              <div className="ui-card-body h-[450px]">
-                {loading ? (
-                  <div className="flex justify-center items-center h-full">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#317EAC]"></div>
-                  </div>
-                ) : error ? (
-                  <div className="p-4 text-sm text-red-600 rounded bg-red-50 border border-red-200">
-                    <span className="font-medium">Error:</span> {error}
-                  </div>
-                ) : data ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={data.chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#317EAC" stopOpacity={0.2} />
-                          <stop offset="95%" stopColor="#317EAC" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
-                      <XAxis dataKey="date" stroke="#64748b" tick={{ fill: '#64748b', fontSize: 12 }} tickMargin={10} minTickGap={30} />
-                      <YAxis stroke="#64748b" tick={{ fill: '#64748b', fontSize: 12 }} tickFormatter={v => 'RM ' + v.toFixed(1)} domain={['auto', 'auto']} width={80} />
-                      <Tooltip content={<CustomTooltip bigMoves={activeDots} />} />
-                      <Area type="monotone" dataKey="price" stroke="#317EAC" strokeWidth={2} fillOpacity={1} fill="url(#colorPrice)" dot={false} />
-                      {activeDots.map((m, i) => (
-                        <ReferenceDot key={i} x={m.date} y={m.price} r={6}
-                          fill={m.pct >= 0 ? '#10b981' : '#ef4444'}
-                          stroke="#ffffff" strokeWidth={2}
-                        />
-                      ))}
-                    </AreaChart>
-                  </ResponsiveContainer>
-                ) : null}
+              <div className="ui-card-body">
+                {/* Chart */}
+                <div style={{ height: 450 }}>
+                  {loading ? (
+                    <div className="flex justify-center items-center h-full">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#317EAC]"></div>
+                    </div>
+                  ) : error ? (
+                    <div className="p-4 text-sm text-red-600 rounded bg-red-50 border border-red-200">
+                      <span className="font-medium">Error:</span> {error}
+                    </div>
+                  ) : data ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={data.chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#317EAC" stopOpacity={0.2} />
+                            <stop offset="95%" stopColor="#317EAC" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                        <XAxis dataKey="date" stroke="#64748b" tick={{ fill: '#64748b', fontSize: 12 }} tickMargin={10} minTickGap={30} />
+                        <YAxis stroke="#64748b" tick={{ fill: '#64748b', fontSize: 12 }} tickFormatter={v => 'RM ' + v.toFixed(1)} domain={['auto', 'auto']} width={80} />
+                        <Tooltip content={<CustomTooltip bigMoves={activeDots} />} />
+                        <Area type="monotone" dataKey="price" stroke="#317EAC" strokeWidth={2} fillOpacity={1} fill="url(#colorPrice)" dot={false} />
+                        {activeDots.map((m, i) => (
+                          <ReferenceDot key={i} x={m.date} y={m.price} r={6}
+                            fill={m.pct >= 0 ? '#10b981' : '#ef4444'}
+                            stroke="#ffffff" strokeWidth={2}
+                          />
+                        ))}
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  ) : null}
+                </div>
+
+                {/* Divider */}
+                {data && <div style={{ borderTop: '1px solid #e2e8f0', margin: '20px 0' }} />}
+
+                {/* Controls + Tabs + Table */}
+                {data && (
+                  <>
+                    {/* Controls */}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20, alignItems: 'center', background: '#f8fafc', borderRadius: 8, padding: '12px 16px', border: '1px solid #e2e8f0', marginBottom: 16 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <Zap size={14} style={{ color: '#f59e0b' }} />
+                        <label style={{ fontSize: 13, fontWeight: 600, color: '#64748b', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 4 }}>
+                          Daily Change:
+                          <span style={{ color: '#1e293b', display: 'inline-block', minWidth: '2.8rem', textAlign: 'right' }}>{thresholdPct}%</span>
+                        </label>
+                        <input type="range" min={0.5} max={10} step={0.5} value={thresholdPct}
+                          onChange={e => setThresholdPct(Number(e.target.value))}
+                          style={{ width: 100, accentColor: '#317EAC', flexShrink: 0 }} />
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <BarChart2 size={14} style={{ color: '#8b5cf6' }} />
+                        <label style={{ fontSize: 13, fontWeight: 600, color: '#64748b', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 4 }}>
+                          Change in Difference:
+                          <span style={{ color: '#1e293b', display: 'inline-block', minWidth: '2.2rem', textAlign: 'right' }}>{zScoreThreshold}x</span>
+                        </label>
+                        <input type="range" min={0.5} max={4} step={0.5} value={zScoreThreshold}
+                          onChange={e => setZScoreThreshold(Number(e.target.value))}
+                          style={{ width: 100, accentColor: '#8b5cf6', flexShrink: 0 }} />
+                      </div>
+                    </div>
+
+                    {/* Tabs */}
+                    <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+                      <span style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, marginRight: 4 }}>Show on chart:</span>
+                      <button style={tabStyle('threshold')} onClick={() => handleTab('threshold')}>
+                        Daily Change ({thresholdHits.length})
+                      </button>
+                      <button style={tabStyle('zscore')} onClick={() => handleTab('zscore')}>
+                        Change in Difference ({zscoreHits.length})
+                      </button>
+                      <button style={tabStyle('consensus')} onClick={() => handleTab('consensus')}>
+                        Both ({consensus.length})
+                      </button>
+                      {activeTab && (
+                        <button onClick={() => setActiveTab(null)}
+                          style={{ padding: '6px 12px', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: '1px solid #e2e8f0', background: '#fff', color: '#94a3b8' }}>
+                          ✕ Clear
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Legend */}
+                    <div style={{ display: 'flex', gap: 16, marginBottom: 12, fontSize: 12, color: '#64748b', flexWrap: 'wrap' }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#10b981', display: 'inline-block' }} /> Spike
+                      </span>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#ef4444', display: 'inline-block' }} /> Drop
+                      </span>
+                      <span style={{ color: '#94a3b8' }}>Select a method above to highlight big moves on the chart</span>
+                    </div>
+
+                    {/* Table */}
+                    {activeTab ? (
+                      <BigMoveTable moves={activeDots} emptyMsg="No big moves found with current settings." />
+                    ) : (
+                      <p style={{ color: '#94a3b8', fontSize: 13 }}>Select a method above to see the list of big moves.</p>
+                    )}
+                  </>
+                )}
               </div>
             </div>
-
-            {/* Big Moves Summary — tabs + table only, no separate chart */}
-            {data && (
-              <div className="ui-card">
-                <div className="ui-card-header" style={{ color: '#7c3aed' }}>
-                  <GitCompare size={20} style={{ color: '#7c3aed' }} />
-                  Big Moves Summary — {TICKERS[selectedTicker]}
-                </div>
-                <div className="ui-card-body">
-
-                  {/* Controls */}
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20, alignItems: 'center', background: '#f8fafc', borderRadius: 8, padding: '12px 16px', border: '1px solid #e2e8f0', marginBottom: 16 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <Zap size={14} style={{ color: '#f59e0b' }} />
-                      <label style={{ fontSize: 13, fontWeight: 600, color: '#64748b', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 4 }}>
-                        Daily Change:
-                        <span style={{ color: '#1e293b', display: 'inline-block', minWidth: '2.8rem', textAlign: 'right' }}>{thresholdPct}%</span>
-                      </label>
-                      <input type="range" min={0.5} max={10} step={0.5} value={thresholdPct}
-                        onChange={e => setThresholdPct(Number(e.target.value))}
-                        style={{ width: 100, accentColor: '#317EAC', flexShrink: 0 }} />
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <BarChart2 size={14} style={{ color: '#8b5cf6' }} />
-                      <label style={{ fontSize: 13, fontWeight: 600, color: '#64748b', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 4 }}>
-                        Change in Difference:
-                        <span style={{ color: '#1e293b', display: 'inline-block', minWidth: '2.2rem', textAlign: 'right' }}>{zScoreThreshold}x</span>
-                      </label>
-                      <input type="range" min={0.5} max={4} step={0.5} value={zScoreThreshold}
-                        onChange={e => setZScoreThreshold(Number(e.target.value))}
-                        style={{ width: 100, accentColor: '#8b5cf6', flexShrink: 0 }} />
-                    </div>
-                  </div>
-
-                  {/* Tabs */}
-                  <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
-                    <span style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, marginRight: 4 }}>Show on chart:</span>
-                    <button style={tabStyle('threshold')} onClick={() => handleTab('threshold')}>
-                      Daily Change ({thresholdHits.length})
-                    </button>
-                    <button style={tabStyle('zscore')} onClick={() => handleTab('zscore')}>
-                      Change in Difference ({zscoreHits.length})
-                    </button>
-                    <button style={tabStyle('consensus')} onClick={() => handleTab('consensus')}>
-                      Both ({consensus.length})
-                    </button>
-                    {activeTab && (
-                      <button onClick={() => setActiveTab(null)}
-                        style={{ padding: '6px 12px', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: '1px solid #e2e8f0', background: '#fff', color: '#94a3b8' }}>
-                        ✕ Clear
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Legend */}
-                  <div style={{ display: 'flex', gap: 16, marginBottom: 12, fontSize: 12, color: '#64748b', flexWrap: 'wrap' }}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                      <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#10b981', display: 'inline-block' }} /> Spike
-                    </span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                      <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#ef4444', display: 'inline-block' }} /> Drop
-                    </span>
-                    <span style={{ color: '#94a3b8' }}>Select a method above to highlight big moves on the chart</span>
-                  </div>
-
-                  {/* Table */}
-                  {activeTab ? (
-                    <BigMoveTable
-                      moves={activeDots}
-                      emptyMsg="No big moves found with current settings."
-                    />
-                  ) : (
-                    <p style={{ color: '#94a3b8', fontSize: 13 }}>Select a method above to see the list of big moves.</p>
-                  )}
-
-                </div>
-              </div>
-            )}
 
           </div>
 
