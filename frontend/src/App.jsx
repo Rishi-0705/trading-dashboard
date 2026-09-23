@@ -460,6 +460,31 @@ function App() {
                       <div className="text-xl font-bold text-gray-900">{formatCurrency(data.marketCap)}</div>
                     </div>
 
+                    {data.dividendYield != null && (
+                      <div className="flex flex-col gap-1 p-3 bg-gray-50 rounded border border-gray-100">
+                        <div className="flex items-center gap-2 text-sm font-medium text-gray-600">
+                          <DollarSign size={16} className="text-purple-500" /> Div Yield TTM
+                        </div>
+                        <div className="text-xl font-bold text-gray-900">{data.dividendYield.toFixed(2)}%</div>
+                      </div>
+                    )}
+
+                    {data.recentDividends && data.recentDividends.length > 0 && (
+                      <div className="flex flex-col gap-2 p-3 bg-gray-50 rounded border border-gray-100">
+                        <div className="flex items-center gap-2 text-sm font-medium text-gray-600 border-b border-gray-200 pb-1">
+                          Recent Dividends
+                        </div>
+                        <div className="space-y-1">
+                          {data.recentDividends.map((div, i) => (
+                            <div key={i} className="flex justify-between items-center text-sm">
+                              <span className="text-gray-500">{div.date}</span>
+                              <span className="font-semibold text-gray-900">RM {div.amount.toFixed(4)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Big moves counter in sidebar */}
                     {activeTab && (
                       <div style={{ padding: '12px', background: '#fafafa', borderRadius: 8, border: '1px solid #e2e8f0' }}>
