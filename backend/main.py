@@ -1,4 +1,4 @@
-﻿from fastapi import FastAPI
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import yfinance as yf
 import pandas as pd
@@ -60,12 +60,27 @@ def get_stock_data(ticker: str, period: str = "6mo"):
             .to_dict("records")
         )
 
+        # Extract Dividend Info
+        dividend_yield = info.get("dividendYield")
+        recent_dividends = []
+        try:
+            divs = stock.dividends.tail(6)
+            if not divs.empty:
+                for d, amount in divs.items():
+                    d_str = d.strftime("%Y-%m-%d") if hasattr(d, "strftime") else str(d)[:10]
+                    recent_dividends.append({"date": d_str, "amount": float(amount)})
+                recent_dividends.reverse()
+        except Exception:
+            pass
+
         return {
             "ticker":    ticker,
             "period":    period,
             "highest":   highest,
             "lowest":    lowest,
             "marketCap": market_cap,
+            "dividendYield": dividend_yield,
+            "recentDividends": recent_dividends,
             "chartData": chart_data,
         }
     except Exception as e:
