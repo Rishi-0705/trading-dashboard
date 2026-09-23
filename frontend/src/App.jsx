@@ -5,8 +5,7 @@ import {
 } from 'recharts';
 import {
   TrendingUp, TrendingDown, DollarSign, Activity, Settings2, Filter,
-  Search, ChevronDown, Globe, BookOpen, MessageSquare, User, HelpCircle,
-  Zap, BarChart2, GitCompare
+  Search, User, HelpCircle, Zap, BarChart2, GitCompare
 } from 'lucide-react';
 
 const TICKERS = {
@@ -30,7 +29,7 @@ function detectByThreshold(chartData, threshold = 2) {
     const curr = chartData[i].price;
     const pct = ((curr - prev) / prev) * 100;
     if (Math.abs(pct) >= threshold) {
-      result.push({ date: chartData[i].date, price: curr, pct, method: 'threshold' });
+      result.push({ date: chartData[i].date, price: curr, pct });
     }
   }
   return result;
@@ -49,8 +48,7 @@ function detectByZScore(chartData, zThreshold = 1.5) {
   const std = Math.sqrt(variance);
   return changes
     .map(c => ({ ...c, z: std > 0 ? Math.abs(c.pct - mean) / std : 0 }))
-    .filter(c => c.z >= zThreshold)
-    .map(c => ({ ...c, method: 'zscore' }));
+    .filter(c => c.z >= zThreshold);
 }
 
 function findConsensus(thresholdHits, zscoreHits) {
@@ -68,37 +66,10 @@ function CustomTooltip({ active, payload, label, bigMoves }) {
       <div style={{ color: '#317EAC', fontWeight: 600 }}>RM {price?.toFixed(3)}</div>
       {move && (
         <div style={{ marginTop: 6, padding: '3px 6px', borderRadius: 4, background: move.pct >= 0 ? '#ecfdf5' : '#fef2f2', color: move.pct >= 0 ? '#059669' : '#dc2626', fontWeight: 700, fontSize: 12 }}>
-          {move.pct > 0 ? 'Up' : 'Down'} {move.pct > 0 ? '+' : ''}{move.pct.toFixed(2)}% big move
+          {move.pct > 0 ? 'Up +' : 'Down '}{move.pct.toFixed(2)}% big move
         </div>
       )}
     </div>
-  );
-}
-
-function MiniStockChart({ chartData, bigMoves, color = '#317EAC', gradientId }) {
-  const dotData = useMemo(() => {
-    if (!bigMoves || !chartData) return [];
-    return bigMoves.map(m => ({ date: m.date, price: m.price, pct: m.pct }));
-  }, [bigMoves, chartData]);
-  return (
-    <ResponsiveContainer width="100%" height={220}>
-      <AreaChart data={chartData} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
-        <defs>
-          <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor={color} stopOpacity={0.18} />
-            <stop offset="95%" stopColor={color} stopOpacity={0} />
-          </linearGradient>
-        </defs>
-        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
-        <XAxis dataKey="date" tick={{ fill: '#94a3b8', fontSize: 10 }} minTickGap={30} tickMargin={6} />
-        <YAxis tick={{ fill: '#94a3b8', fontSize: 10 }} tickFormatter={v => 'RM ' + v.toFixed(2)} width={72} domain={['auto', 'auto']} />
-        <Tooltip content={<CustomTooltip bigMoves={dotData} />} />
-        <Area type="monotone" dataKey="price" stroke={color} strokeWidth={2} fillOpacity={1} fill={'url(#' + gradientId + ')'} dot={false} />
-        {dotData.map((m, i) => (
-          <ReferenceDot key={i} x={m.date} y={m.price} r={6} fill={m.pct >= 0 ? '#10b981' : '#ef4444'} stroke="#ffffff" strokeWidth={2} />
-        ))}
-      </AreaChart>
-    </ResponsiveContainer>
   );
 }
 
@@ -132,89 +103,20 @@ function BigMoveTable({ moves, emptyMsg }) {
   );
 }
 
-function ComparisonPanel({ tickerKey, name, period, color, gradientId, thresholdPct, zScoreThreshold }) {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState('threshold');
-
-  useEffect(() => {
-    setLoading(true);
-    setError(null);
-    fetch('https://trading-dashboard-api-fsbx.onrender.com/api/stock/' + tickerKey + '?period=' + period)
-      .then(r => r.json())
-      .then(result => {
-        if (result.error) setError(result.error);
-        else setData(result);
-      })
-      .catch(() => setError('Failed to fetch data.'))
-      .finally(() => setLoading(false));
-  }, [tickerKey, period]);
-
-  const { thresholdHits, zscoreHits, consensus } = useMemo(() => {
-    if (!data?.chartData) return { thresholdHits: [], zscoreHits: [], consensus: [] };
-    const t = detectByThreshold(data.chartData, thresholdPct);
-    const z = detectByZScore(data.chartData, zScoreThreshold);
-    return { thresholdHits: t, zscoreHits: z, consensus: findConsensus(t, z) };
-  }, [data, thresholdPct, zScoreThreshold]);
-
-  const activeHits = activeTab === 'threshold' ? thresholdHits : activeTab === 'zscore' ? zscoreHits : consensus;
-
-  const tabStyle = (tab) => ({
-    padding: '5px 14px', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer',
-    border: 'none', background: activeTab === tab ? color : '#f1f5f9',
-    color: activeTab === tab ? '#fff' : '#64748b', transition: 'all 0.15s'
-  });
-
-  return (
-    <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-      <div style={{ padding: '12px 16px', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ width: 10, height: 10, borderRadius: '50%', background: color }} />
-          <span style={{ fontWeight: 700, fontSize: 15, color: '#1e293b' }}>{name}</span>
-          <span style={{ fontSize: 12, color: '#94a3b8' }}>{tickerKey}</span>
-        </div>
-        {data && (
-          <div style={{ display: 'flex', gap: 12, fontSize: 12 }}>
-            <span>Up <b style={{ color: '#10b981' }}>{activeHits.filter(m => m.pct >= 0).length}</b></span>
-            <span>Down <b style={{ color: '#ef4444' }}>{activeHits.filter(m => m.pct < 0).length}</b></span>
-          </div>
-        )}
-      </div>
-      <div style={{ padding: 16 }}>
-        {loading && (
-          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 220 }}>
-            <div style={{ width: 32, height: 32, border: '3px solid ' + color, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-          </div>
-        )}
-        {error && <div style={{ padding: 12, background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6, color: '#dc2626', fontSize: 13 }}>Error: {error}</div>}
-        {!loading && !error && data && (
-          <>
-            <MiniStockChart chartData={data.chartData} bigMoves={activeHits} color={color} gradientId={gradientId} />
-            <div style={{ display: 'flex', gap: 6, marginBottom: 12, marginTop: 8, flexWrap: 'wrap' }}>
-              <button style={tabStyle('threshold')} onClick={() => setActiveTab('threshold')}>Daily Change ({thresholdHits.length})</button>
-              <button style={tabStyle('zscore')} onClick={() => setActiveTab('zscore')}>Change in Difference ({zscoreHits.length})</button>
-              <button style={tabStyle('consensus')} onClick={() => setActiveTab('consensus')}>Both ({consensus.length})</button>
-            </div>
-            <BigMoveTable moves={activeHits} emptyMsg="No big moves found with current settings." />
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
 function App() {
   const [selectedTicker, setSelectedTicker] = useState("1155.KL");
   const [selectedPeriod, setSelectedPeriod] = useState("1mo");
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [compPeriod, setCompPeriod] = useState('3mo');
+
+  // Big moves controls
   const [thresholdPct, setThresholdPct] = useState(2);
   const [zScoreThreshold, setZScoreThreshold] = useState(1.5);
+  const [activeTab, setActiveTab] = useState(null); // null = no dots shown
 
   useEffect(() => {
+    setActiveTab(null); // reset dots when stock/period changes
     const fetchData = async () => {
       setLoading(true);
       setError(null);
@@ -239,33 +141,57 @@ function App() {
     return 'RM ' + value.toFixed(2);
   };
 
-  const mainBigMoves = useMemo(() => {
-    if (!data?.chartData) return [];
-    return detectByThreshold(data.chartData, thresholdPct);
-  }, [data, thresholdPct]);
+  // Compute all three detection sets from main chart data
+  const { thresholdHits, zscoreHits, consensus } = useMemo(() => {
+    if (!data?.chartData) return { thresholdHits: [], zscoreHits: [], consensus: [] };
+    const t = detectByThreshold(data.chartData, thresholdPct);
+    const z = detectByZScore(data.chartData, zScoreThreshold);
+    return { thresholdHits: t, zscoreHits: z, consensus: findConsensus(t, z) };
+  }, [data, thresholdPct, zScoreThreshold]);
+
+  // Active dots shown on the main chart
+  const activeDots = activeTab === 'threshold' ? thresholdHits
+    : activeTab === 'zscore' ? zscoreHits
+    : activeTab === 'consensus' ? consensus
+    : []; // null = no dots
+
+  // Toggle tab — clicking active tab deselects it
+  const handleTab = (tab) => setActiveTab(prev => prev === tab ? null : tab);
 
   const panelColor = selectedTicker === '6963.KL' ? '#8b5cf6' : '#317EAC';
+
+  const tabStyle = (tab) => ({
+    padding: '6px 14px', borderRadius: 6, fontSize: 12, fontWeight: 600,
+    cursor: 'pointer', border: '1px solid',
+    borderColor: activeTab === tab ? panelColor : '#e2e8f0',
+    background: activeTab === tab ? panelColor : '#fff',
+    color: activeTab === tab ? '#fff' : '#64748b',
+    transition: 'all 0.15s'
+  });
 
   return (
     <div className="min-h-screen bg-background">
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+
+      {/* Navbar */}
       <nav className="bg-[#2E3E4E] text-white py-2 px-4 shadow-md sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-4 w-full md:w-auto">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
             <div className="w-8 h-8 bg-orange-400 rounded-sm flex items-center justify-center font-bold text-lg">📈</div>
-            <div className="relative flex-grow md:w-64">
-              <input type="text" placeholder="Search ticker" className="w-full pl-3 pr-10 py-1.5 text-sm text-gray-900 bg-white border border-gray-300 rounded focus:outline-none" />
+            <div className="relative w-64">
+              <input type="text" placeholder="Search ticker"
+                className="w-full pl-3 pr-10 py-1.5 text-sm text-gray-900 bg-white border border-gray-300 rounded focus:outline-none" />
               <Search className="absolute right-2 top-2 text-gray-500" size={16} />
             </div>
           </div>
-
-          <div className="flex items-center gap-4 text-sm whitespace-nowrap">
+          <div className="flex items-center gap-4 text-sm">
             <a href="#" className="flex items-center gap-1 hover:text-gray-300"><User size={16} /> Login</a>
             <a href="#" className="hover:text-gray-300"><HelpCircle size={18} /></a>
           </div>
         </div>
       </nav>
 
+      {/* Main Content */}
       <div className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8">
         <div className="mb-6">
           <h1 className="text-4xl font-bold text-[#317EAC] mb-2">Stocks Dashboard</h1>
@@ -275,14 +201,15 @@ function App() {
         <div className="flex flex-col lg:flex-row gap-6">
           <div className="flex-1 space-y-6">
 
+            {/* Settings */}
             <div className="ui-card">
               <div className="ui-card-header"><Settings2 size={20} /> Dashboard Settings</div>
               <div className="ui-card-body">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="flex items-center gap-4">
                     <label className="w-24 text-sm font-medium text-gray-700">Stock Name</label>
-                    <select value={selectedTicker} onChange={(e) => setSelectedTicker(e.target.value)}
-                      className="flex-1 bg-white border border-gray-300 text-gray-900 text-sm rounded focus:ring-blue-500 focus:border-blue-500 block p-2 outline-none cursor-pointer">
+                    <select value={selectedTicker} onChange={e => setSelectedTicker(e.target.value)}
+                      className="flex-1 bg-white border border-gray-300 text-gray-900 text-sm rounded p-2 outline-none cursor-pointer">
                       {Object.entries(TICKERS).map(([ticker, name]) => (
                         <option key={ticker} value={ticker}>{name} ({ticker})</option>
                       ))}
@@ -290,24 +217,34 @@ function App() {
                   </div>
                   <div className="flex items-center gap-4">
                     <label className="w-24 text-sm font-medium text-gray-700">Timeline</label>
-                    <select value={selectedPeriod} onChange={(e) => setSelectedPeriod(e.target.value)}
-                      className="flex-1 bg-white border border-gray-300 text-gray-900 text-sm rounded focus:ring-blue-500 focus:border-blue-500 block p-2 outline-none cursor-pointer">
-                      {PERIODS.map((p) => (<option key={p.value} value={p.value}>{p.label}</option>))}
+                    <select value={selectedPeriod} onChange={e => setSelectedPeriod(e.target.value)}
+                      className="flex-1 bg-white border border-gray-300 text-gray-900 text-sm rounded p-2 outline-none cursor-pointer">
+                      {PERIODS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
                     </select>
                   </div>
                 </div>
               </div>
             </div>
 
+            {/* Main Chart — with conditional dots */}
             <div className="ui-card">
-              <div className="ui-card-header"><Activity size={20} /> Price History</div>
+              <div className="ui-card-header">
+                <Activity size={20} /> Price History
+                {activeTab && (
+                  <span style={{ marginLeft: 'auto', fontSize: 12, color: panelColor, fontWeight: 600 }}>
+                    {activeDots.length} big move{activeDots.length !== 1 ? 's' : ''} shown
+                  </span>
+                )}
+              </div>
               <div className="ui-card-body h-[450px]">
                 {loading ? (
                   <div className="flex justify-center items-center h-full">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#317EAC]"></div>
                   </div>
                 ) : error ? (
-                  <div className="p-4 text-sm text-red-600 rounded bg-red-50 border border-red-200"><span className="font-medium">Error:</span> {error}</div>
+                  <div className="p-4 text-sm text-red-600 rounded bg-red-50 border border-red-200">
+                    <span className="font-medium">Error:</span> {error}
+                  </div>
                 ) : data ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={data.chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
@@ -319,11 +256,14 @@ function App() {
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
                       <XAxis dataKey="date" stroke="#64748b" tick={{ fill: '#64748b', fontSize: 12 }} tickMargin={10} minTickGap={30} />
-                      <YAxis stroke="#64748b" tick={{ fill: '#64748b', fontSize: 12 }} tickFormatter={(v) => 'RM ' + v.toFixed(1)} domain={['auto', 'auto']} width={80} />
-                      <Tooltip content={<CustomTooltip bigMoves={mainBigMoves} />} />
+                      <YAxis stroke="#64748b" tick={{ fill: '#64748b', fontSize: 12 }} tickFormatter={v => 'RM ' + v.toFixed(1)} domain={['auto', 'auto']} width={80} />
+                      <Tooltip content={<CustomTooltip bigMoves={activeDots} />} />
                       <Area type="monotone" dataKey="price" stroke="#317EAC" strokeWidth={2} fillOpacity={1} fill="url(#colorPrice)" dot={false} />
-                      {mainBigMoves.map((m, i) => (
-                        <ReferenceDot key={i} x={m.date} y={m.price} r={6} fill={m.pct >= 0 ? '#10b981' : '#ef4444'} stroke="#ffffff" strokeWidth={2} />
+                      {activeDots.map((m, i) => (
+                        <ReferenceDot key={i} x={m.date} y={m.price} r={6}
+                          fill={m.pct >= 0 ? '#10b981' : '#ef4444'}
+                          stroke="#ffffff" strokeWidth={2}
+                        />
                       ))}
                     </AreaChart>
                   </ResponsiveContainer>
@@ -331,73 +271,91 @@ function App() {
               </div>
             </div>
 
-            <div className="ui-card">
-              <div className="ui-card-header" style={{ color: '#7c3aed' }}>
-                <GitCompare size={20} style={{ color: '#7c3aed' }} />
-                Big Moves Summary — {TICKERS[selectedTicker]} ({selectedTicker})
-              </div>
-              <div className="ui-card-body">
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20, alignItems: 'center', background: '#f8fafc', borderRadius: 8, padding: '12px 16px', border: '1px solid #e2e8f0', marginBottom: 20 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <label style={{ fontSize: 13, fontWeight: 600, color: '#64748b', whiteSpace: 'nowrap' }}>Period</label>
-                    <select value={compPeriod} onChange={e => setCompPeriod(e.target.value)}
-                      style={{ fontSize: 13, padding: '4px 8px', border: '1px solid #d1d5db', borderRadius: 6, outline: 'none', background: '#fff', cursor: 'pointer' }}>
-                      <option value="1mo">1 Month</option>
-                      <option value="3mo">3 Months</option>
-                      <option value="6mo">6 Months</option>
-                      <option value="1y">1 Year</option>
-                    </select>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <Zap size={14} style={{ color: '#f59e0b' }} />
-                    <label style={{ fontSize: 13, fontWeight: 600, color: '#64748b', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 4 }}>
-                      Daily Change threshold:
-                      <span style={{ color: '#1e293b', display: 'inline-block', minWidth: '2.8rem', textAlign: 'right' }}>{thresholdPct}%</span>
-                    </label>
-                    <input type="range" min={0.5} max={10} step={0.5} value={thresholdPct}
-                      onChange={e => setThresholdPct(Number(e.target.value))}
-                      style={{ width: 100, accentColor: '#317EAC', flexShrink: 0 }} />
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <BarChart2 size={14} style={{ color: '#8b5cf6' }} />
-                    <label style={{ fontSize: 13, fontWeight: 600, color: '#64748b', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 4 }}>
-                      Change in Difference:
-                      <span style={{ color: '#1e293b', display: 'inline-block', minWidth: '2.2rem', textAlign: 'right' }}>{zScoreThreshold}x</span>
-                    </label>
-                    <input type="range" min={0.5} max={4} step={0.5} value={zScoreThreshold}
-                      onChange={e => setZScoreThreshold(Number(e.target.value))}
-                      style={{ width: 100, accentColor: '#8b5cf6', flexShrink: 0 }} />
-                  </div>
+            {/* Big Moves Summary — tabs + table only, no separate chart */}
+            {data && (
+              <div className="ui-card">
+                <div className="ui-card-header" style={{ color: '#7c3aed' }}>
+                  <GitCompare size={20} style={{ color: '#7c3aed' }} />
+                  Big Moves Summary — {TICKERS[selectedTicker]}
                 </div>
+                <div className="ui-card-body">
 
-                <div style={{ display: 'flex', gap: 20, marginBottom: 16, fontSize: 12, color: '#64748b', flexWrap: 'wrap' }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#10b981', display: 'inline-block' }} /> Price spike (green dot)
-                  </span>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#ef4444', display: 'inline-block' }} /> Price drop (red dot)
-                  </span>
-                  <span>Both tab = flagged by both methods (high confidence)</span>
+                  {/* Controls */}
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20, alignItems: 'center', background: '#f8fafc', borderRadius: 8, padding: '12px 16px', border: '1px solid #e2e8f0', marginBottom: 16 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <Zap size={14} style={{ color: '#f59e0b' }} />
+                      <label style={{ fontSize: 13, fontWeight: 600, color: '#64748b', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 4 }}>
+                        Daily Change:
+                        <span style={{ color: '#1e293b', display: 'inline-block', minWidth: '2.8rem', textAlign: 'right' }}>{thresholdPct}%</span>
+                      </label>
+                      <input type="range" min={0.5} max={10} step={0.5} value={thresholdPct}
+                        onChange={e => setThresholdPct(Number(e.target.value))}
+                        style={{ width: 100, accentColor: '#317EAC', flexShrink: 0 }} />
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <BarChart2 size={14} style={{ color: '#8b5cf6' }} />
+                      <label style={{ fontSize: 13, fontWeight: 600, color: '#64748b', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 4 }}>
+                        Change in Difference:
+                        <span style={{ color: '#1e293b', display: 'inline-block', minWidth: '2.2rem', textAlign: 'right' }}>{zScoreThreshold}x</span>
+                      </label>
+                      <input type="range" min={0.5} max={4} step={0.5} value={zScoreThreshold}
+                        onChange={e => setZScoreThreshold(Number(e.target.value))}
+                        style={{ width: 100, accentColor: '#8b5cf6', flexShrink: 0 }} />
+                    </div>
+                  </div>
+
+                  {/* Tabs */}
+                  <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <span style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, marginRight: 4 }}>Show on chart:</span>
+                    <button style={tabStyle('threshold')} onClick={() => handleTab('threshold')}>
+                      Daily Change ({thresholdHits.length})
+                    </button>
+                    <button style={tabStyle('zscore')} onClick={() => handleTab('zscore')}>
+                      Change in Difference ({zscoreHits.length})
+                    </button>
+                    <button style={tabStyle('consensus')} onClick={() => handleTab('consensus')}>
+                      Both ({consensus.length})
+                    </button>
+                    {activeTab && (
+                      <button onClick={() => setActiveTab(null)}
+                        style={{ padding: '6px 12px', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: '1px solid #e2e8f0', background: '#fff', color: '#94a3b8' }}>
+                        ✕ Clear
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Legend */}
+                  <div style={{ display: 'flex', gap: 16, marginBottom: 12, fontSize: 12, color: '#64748b', flexWrap: 'wrap' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#10b981', display: 'inline-block' }} /> Spike
+                    </span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#ef4444', display: 'inline-block' }} /> Drop
+                    </span>
+                    <span style={{ color: '#94a3b8' }}>Select a method above to highlight big moves on the chart</span>
+                  </div>
+
+                  {/* Table */}
+                  {activeTab ? (
+                    <BigMoveTable
+                      moves={activeDots}
+                      emptyMsg="No big moves found with current settings."
+                    />
+                  ) : (
+                    <p style={{ color: '#94a3b8', fontSize: 13 }}>Select a method above to see the list of big moves.</p>
+                  )}
+
                 </div>
-
-                <ComparisonPanel
-                  tickerKey={selectedTicker}
-                  name={TICKERS[selectedTicker]}
-                  period={compPeriod}
-                  color={panelColor}
-                  gradientId="mainGrad"
-                  thresholdPct={thresholdPct}
-                  zScoreThreshold={zScoreThreshold}
-                />
               </div>
-            </div>
+            )}
 
           </div>
 
+          {/* Sidebar */}
           <div className="w-full lg:w-80">
             <div className="ui-card sticky top-24">
-              <div className="ui-card-header flex justify-between">
-                <div className="flex items-center gap-2"><Filter size={20} /> Active Metrics</div>
+              <div className="ui-card-header">
+                <Filter size={20} /> Active Metrics
               </div>
               <div className="ui-card-body space-y-4">
                 {loading ? (
@@ -405,36 +363,47 @@ function App() {
                 ) : data ? (
                   <>
                     <div className="flex flex-col gap-1 p-3 bg-gray-50 rounded border border-gray-100">
-                      <div className="flex items-center gap-2 text-sm font-medium text-gray-600"><TrendingUp size={16} className="text-emerald-500" /> Period High</div>
+                      <div className="flex items-center gap-2 text-sm font-medium text-gray-600">
+                        <TrendingUp size={16} className="text-emerald-500" /> Period High
+                      </div>
                       <div className="text-xl font-bold text-gray-900">{formatCurrency(data.highest)}</div>
                     </div>
                     <div className="flex flex-col gap-1 p-3 bg-gray-50 rounded border border-gray-100">
-                      <div className="flex items-center gap-2 text-sm font-medium text-gray-600"><TrendingDown size={16} className="text-red-500" /> Period Low</div>
+                      <div className="flex items-center gap-2 text-sm font-medium text-gray-600">
+                        <TrendingDown size={16} className="text-red-500" /> Period Low
+                      </div>
                       <div className="text-xl font-bold text-gray-900">{formatCurrency(data.lowest)}</div>
                     </div>
                     <div className="flex flex-col gap-1 p-3 bg-gray-50 rounded border border-gray-100">
-                      <div className="flex items-center gap-2 text-sm font-medium text-gray-600"><DollarSign size={16} className="text-blue-500" /> Market Capital</div>
+                      <div className="flex items-center gap-2 text-sm font-medium text-gray-600">
+                        <DollarSign size={16} className="text-blue-500" /> Market Capital
+                      </div>
                       <div className="text-xl font-bold text-gray-900">{formatCurrency(data.marketCap)}</div>
                     </div>
-                    <div style={{ padding: '12px', background: '#fafafa', borderRadius: 8, border: '1px solid #e2e8f0' }}>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                        Big Moves (main chart)
+
+                    {/* Big moves counter in sidebar */}
+                    {activeTab && (
+                      <div style={{ padding: '12px', background: '#fafafa', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          Big Moves Shown
+                        </div>
+                        <div style={{ display: 'flex', gap: 16 }}>
+                          <div style={{ textAlign: 'center' }}>
+                            <div style={{ fontSize: 22, fontWeight: 800, color: '#10b981' }}>{activeDots.filter(m => m.pct >= 0).length}</div>
+                            <div style={{ fontSize: 11, color: '#64748b' }}>spikes</div>
+                          </div>
+                          <div style={{ textAlign: 'center' }}>
+                            <div style={{ fontSize: 22, fontWeight: 800, color: '#ef4444' }}>{activeDots.filter(m => m.pct < 0).length}</div>
+                            <div style={{ fontSize: 11, color: '#64748b' }}>drops</div>
+                          </div>
+                          <div style={{ textAlign: 'center' }}>
+                            <div style={{ fontSize: 22, fontWeight: 800, color: '#317EAC' }}>{activeDots.length}</div>
+                            <div style={{ fontSize: 11, color: '#64748b' }}>total</div>
+                          </div>
+                        </div>
                       </div>
-                      <div style={{ display: 'flex', gap: 16 }}>
-                        <div style={{ textAlign: 'center' }}>
-                          <div style={{ fontSize: 22, fontWeight: 800, color: '#10b981' }}>{mainBigMoves.filter(m => m.pct >= 0).length}</div>
-                          <div style={{ fontSize: 11, color: '#64748b' }}>spikes</div>
-                        </div>
-                        <div style={{ textAlign: 'center' }}>
-                          <div style={{ fontSize: 22, fontWeight: 800, color: '#ef4444' }}>{mainBigMoves.filter(m => m.pct < 0).length}</div>
-                          <div style={{ fontSize: 11, color: '#64748b' }}>drops</div>
-                        </div>
-                        <div style={{ textAlign: 'center' }}>
-                          <div style={{ fontSize: 22, fontWeight: 800, color: '#317EAC' }}>{mainBigMoves.length}</div>
-                          <div style={{ fontSize: 11, color: '#64748b' }}>total</div>
-                        </div>
-                      </div>
-                    </div>
+                    )}
+
                     <button className="w-full mt-4 bg-[#317EAC] hover:bg-[#226a9a] text-white font-medium py-2 px-4 rounded flex items-center justify-center gap-2 transition-colors"
                       onClick={() => window.location.reload()}>
                       <Search size={16} /> Update Data
