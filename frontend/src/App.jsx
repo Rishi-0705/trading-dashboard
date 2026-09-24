@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  Area, AreaChart, ReferenceDot
+  Area, AreaChart, ReferenceDot, ComposedChart, Bar, Line, Legend
 } from 'recharts';
 import {
   TrendingUp, TrendingDown, DollarSign, Activity, Settings2, Filter,
@@ -428,6 +428,8 @@ function App() {
               </div>
             </div>
 
+
+
           </div>
 
           {/* Sidebar */}
@@ -474,11 +476,19 @@ function App() {
                         <div className="flex items-center gap-2 text-sm font-medium text-gray-600 border-b border-gray-200 pb-1">
                           Recent Dividends
                         </div>
-                        <div className="space-y-1">
+                        <div className="space-y-2">
                           {data.recentDividends.map((div, i) => (
-                            <div key={i} className="flex justify-between items-center text-sm">
-                              <span className="text-gray-500">{div.date}</span>
-                              <span className="font-semibold text-gray-900">RM {div.amount.toFixed(4)}</span>
+                            <div key={i} className="flex flex-col border-b border-gray-100 last:border-0 pb-1.5 last:pb-0">
+                              <div className="flex justify-between items-center text-sm mb-1">
+                                <span className="text-gray-500">{div.date}</span>
+                                <span className="font-semibold text-gray-900">RM {div.amount.toFixed(4)}</span>
+                              </div>
+                              {div.revenue !== undefined && div.revenue !== null && (
+                                <div className="flex justify-between text-[10px] text-gray-400">
+                                  <span>Rev: <span className="text-blue-500 font-medium">{formatCurrency(div.revenue)}</span></span>
+                                  <span>Profit: <span className="text-emerald-500 font-medium">{formatCurrency(div.netProfit)}</span></span>
+                                </div>
+                              )}
                             </div>
                           ))}
                         </div>

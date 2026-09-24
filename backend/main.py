@@ -67,6 +67,34 @@ def get_stock_data(ticker: str, period: str = "6mo"):
             .to_dict("records")
         )
 
+        # Extract Quarterly Financials
+        financials_data = []
+        try:
+            q_stmt = stock.quarterly_income_stmt
+            if not q_stmt.empty:
+                # Transpose to iterate by date (columns are dates)
+                rev_key = "Total Revenue"
+                ni_key = "Net Income"
+                for col_date in q_stmt.columns:
+                    try:
+                        rev = float(q_stmt.at[rev_key, col_date]) if rev_key in q_stmt.index else 0
+                        ni = float(q_stmt.at[ni_key, col_date]) if ni_key in q_stmt.index else 0
+                        margin = (ni / rev * 100) if rev > 0 else 0
+                        date_str = col_date.strftime("%Y-%m") if hasattr(col_date, "strftime") else str(col_date)[:7]
+                        
+                        financials_data.append({
+                            "date": date_str,
+                            "revenue": rev,
+                            "netProfit": ni,
+                            "margin": float(margin)
+                        })
+                    except Exception:
+                        pass
+                # Reverse to chronological order
+                financials_data.reverse()
+        except Exception as e:
+            print("Error fetching financials:", e)
+
         # Extract Dividend Info
         dividend_yield = info.get("dividendYield")
         recent_dividends = []
@@ -75,7 +103,26 @@ def get_stock_data(ticker: str, period: str = "6mo"):
             if not divs.empty:
                 for d, amount in divs.items():
                     d_str = d.strftime("%Y-%m-%d") if hasattr(d, "strftime") else str(d)[:10]
-                    recent_dividends.append({"date": d_str, "amount": float(amount)})
+                    
+                    closest_rev = None
+                    closest_ni = None
+                    if len(financials_data) > 0:
+                        div_ym = d_str[:7]
+                        for fd in reversed(financials_data):
+                            if fd["date"] <= div_ym:
+                                closest_rev = fd["revenue"]
+                                closest_ni = fd["netProfit"]
+                                break
+                        if closest_rev is None:
+                            closest_rev = financials_data[0]["revenue"]
+                            closest_ni = financials_data[0]["netProfit"]
+                            
+                    recent_dividends.append({
+                        "date": d_str, 
+                        "amount": float(amount),
+                        "revenue": closest_rev,
+                        "netProfit": closest_ni
+                    })
                 recent_dividends.reverse()
         except Exception:
             pass
@@ -89,6 +136,7 @@ def get_stock_data(ticker: str, period: str = "6mo"):
             "dividendYield": dividend_yield,
             "recentDividends": recent_dividends,
             "chartData": chart_data,
+            "financialsData": financials_data,
         }
     except Exception as e:
         return {"error": str(e)}
